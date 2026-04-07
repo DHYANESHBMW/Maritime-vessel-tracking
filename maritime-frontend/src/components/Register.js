@@ -2,141 +2,73 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const Register = ({ setView }) => {
-  const [formData, setFormData] = useState({
-    username: '', 
-    email: '', 
-    password: '', 
-    confirmPassword: '', 
-    role: 'operator' 
-  });
+  const [formData, setFormData] = useState({ username: '', email: '', password: '', confirmPassword: '', role: 'operator' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError('');
-    
-    // Client-side validation for demo robustness
-    if (formData.password !== formData.confirmPassword) {
-      return setError("Security passcodes do not match!");
-    }
-
+    if (formData.password !== formData.confirmPassword) return setError("SECURITY PASSWORDS MISMATCH");
     setIsLoading(true);
     try {
-      // Endpoint matches RegisterView in core/views.py
       const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000';
-      const { username, email, password, role } = formData;
-      await axios.post(`${API_BASE}/api/register/`, { 
-        username, 
-        email,
-        password,
-        role 
-      });
-      
-      alert(`Security Profile Initialized: Account created as ${formData.role.toUpperCase()}`);
-      setView('login'); 
-      
+      await axios.post(`${API_BASE}/api/register/`, formData);
+      setView('login');
     } catch (error) {
-      console.error("Enrollment error:", error);
-      setError(error.response?.data?.error || "Registration failed. Username may be taken.");
+      setError("ENROLLMENT FAILED: SYSTEM REJECTED IDENTITY");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div style={regContainerStyle}>
-      <form onSubmit={handleRegister} style={regFormStyle}>
+    <div style={containerStyle}>
+      <div className="glass-hud" style={formStyle}>
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ fontSize: '2.5rem', margin: 0 }}>⚓</h1>
-          <h2 style={{ color: '#0f172a', margin: '10px 0 5px', letterSpacing: '1px' }}>FLEET ENROLLMENT</h2>
-          <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Establish New Operational Identity</p>
+            <h2 className="terminal-text" style={{ color: 'var(--accent-blue)', margin: '0', fontSize: '1.2rem' }}>IDENTITY ENROLLMENT</h2>
+            <p className="terminal-text" style={{ color: '#64748b', fontSize: '0.6rem', marginTop: '5px' }}>NEW OPERATOR PROTOCOL</p>
         </div>
 
-        {error && (
-          <div style={errorBanner}>{error}</div>
-        )}
+        {error && <div style={errorBanner}>{error}</div>}
         
-        <label style={labelStyle}>Operational Identifier (Username)</label>
-        <input 
-          type="text" 
-          placeholder="Assign username" 
-          value={formData.username}
-          onChange={e => setFormData({...formData, username: e.target.value})} 
-          style={regInputStyle} 
-          disabled={isLoading}
-          required 
-        />
-        
-        <label style={labelStyle}>Contact Channel (Email)</label>
-        <input 
-          type="email" 
-          placeholder="official@maritime.com" 
-          value={formData.email}
-          onChange={e => setFormData({...formData, email: e.target.value})} 
-          style={regInputStyle} 
-          disabled={isLoading}
-          required 
-        />
-        
-        <div style={{ marginBottom: '20px' }}>
-          <label style={labelStyle}>Authorization Level</label>
-          <select 
-            value={formData.role}
-            onChange={e => setFormData({...formData, role: e.target.value})}
-            style={regInputStyle} 
-            disabled={isLoading}
-            required
-          >
-            <option value="operator">Operator (Fleet Monitor)</option>
-            <option value="analyst">Analyst (Data Insights)</option>
-            <option value="admin">Admin (Full System Control)</option>
+        <form onSubmit={handleRegister}>
+          <label className="terminal-text" style={labelHUDStyle}>OP_ID</label>
+          <input type="text" placeholder="USERNAME" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} style={inputHUDStyle} required />
+          
+          <label className="terminal-text" style={labelHUDStyle}>COMM_CHANNEL</label>
+          <input type="email" placeholder="EMAIL" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={inputHUDStyle} required />
+
+          <label className="terminal-text" style={labelHUDStyle}>SEC_LEVEL</label>
+          <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} style={inputHUDStyle}>
+            <option value="operator">OPERATOR (MONITOR)</option>
+            <option value="analyst">ANALYST (INSIGHTS)</option>
+            <option value="admin">ADMIN (ROOT)</option>
           </select>
-        </div>
-        
-        <label style={labelStyle}>Security Passcode</label>
-        <input 
-          type="password" 
-          placeholder="••••••••" 
-          value={formData.password}
-          onChange={e => setFormData({...formData, password: e.target.value})} 
-          style={regInputStyle} 
-          disabled={isLoading}
-          required 
-        />
 
-        <label style={labelStyle}>Confirm Passcode</label>
-        <input 
-          type="password" 
-          placeholder="••••••••" 
-          value={formData.confirmPassword}
-          onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
-          style={regInputStyle} 
-          disabled={isLoading}
-          required 
-        />
+          <label className="terminal-text" style={labelHUDStyle}>PASS_CODE</label>
+          <input type="password" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={inputHUDStyle} required />
 
-        <button type="submit" style={isLoading ? disabledButtonStyle : regButtonStyle} disabled={isLoading}>
-          {isLoading ? 'ENROLLING IDENTITY...' : 'INITIALIZE PROFILE'}
-        </button>
-        
-        <p style={{ textAlign: 'center', marginTop: '25px', fontSize: '0.85rem', color: '#64748b' }}>
-          Already have a profile? 
-          <span onClick={() => setView('login')} style={loginLinkStyle}>Secure Log In</span>
+          <label className="terminal-text" style={labelHUDStyle}>CONFIRM_PASS</label>
+          <input type="password" placeholder="••••••••" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} style={inputHUDStyle} required />
+
+          <button type="submit" className="terminal-text" style={regHUDButtonStyle} disabled={isLoading}>
+            {isLoading ? 'ENROLLING...' : 'FINALIZE PROFILE'}
+          </button>
+        </form>
+
+        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.7rem', color: '#64748b' }}>
+          ALREADY ENROLLED? <span onClick={() => setView('login')} style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 'bold' }}>LOG IN</span>
         </p>
-      </form>
+      </div>
     </div>
   );
 };
 
-// --- Updated Command Center Styles ---
-const regContainerStyle = { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#0f172a', padding: '40px 0' };
-const regFormStyle = { background: '#fff', padding: '45px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', width: '420px' };
-const labelStyle = { display: 'block', marginBottom: '8px', fontSize: '0.7rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const regInputStyle = { width: '100%', padding: '14px', marginBottom: '20px', borderRadius: '12px', border: '1.5px solid #e2e8f0', boxSizing: 'border-box', outline: 'none', fontSize: '0.9rem' };
-const regButtonStyle = { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '0.9rem', letterSpacing: '1px', transition: '0.3s' };
-const disabledButtonStyle = { ...regButtonStyle, background: '#94a3b8', cursor: 'not-allowed' };
-const errorBanner = { padding: '12px', background: '#fee2e2', color: '#b91c1c', borderRadius: '10px', fontSize: '0.8rem', marginBottom: '20px', fontWeight: 'bold', border: '1px solid #fecaca' };
-const loginLinkStyle = { color: '#3b82f6', cursor: 'pointer', marginLeft: '8px', fontWeight: 'bold', textDecoration: 'underline' };
+const containerStyle = { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'radial-gradient(circle, #0f172a 0%, #020617 100%)', padding: '40px 0' };
+const formStyle = { padding: '50px', width: '380px', border: '1px solid var(--border-glass)' };
+const labelHUDStyle = { display: 'block', marginBottom: '8px', fontSize: '0.6rem', color: '#64748b' };
+const inputHUDStyle = { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '12px', color: '#fff', fontSize: '0.8rem', outline: 'none', marginBottom: '15px', boxSizing: 'border-box' };
+const regHUDButtonStyle = { width: '100%', padding: '15px', background: 'var(--neon-green)', color: '#020617', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
+const errorBanner = { padding: '10px', background: 'rgba(244, 63, 94, 0.1)', color: 'var(--neon-red)', borderRadius: '6px', fontSize: '0.7rem', marginBottom: '20px', textAlign: 'center', border: '1px solid var(--neon-red)' };
 
 export default Register;

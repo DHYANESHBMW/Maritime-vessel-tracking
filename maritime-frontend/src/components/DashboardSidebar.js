@@ -1,95 +1,173 @@
 import React from 'react';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-const modHeader = { fontSize: '0.9rem', fontWeight: '800', textTransform: 'uppercase', marginBottom: '20px', color: '#1e293b' };
-const analyticsBox = { padding: '15px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '15px' };
-const label = { fontSize: '0.65rem', color: '#94a3b8', fontWeight: 'bold', letterSpacing: '0.5px' };
-const statValue = { fontSize: '1.2rem', fontWeight: 'bold', color: '#3b82f6' };
-const alertCardStyle = { padding: '12px', background: '#fee2e2', color: '#b91c1c', borderRadius: '10px', marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold' };
-const logEntryStyle = { padding: '12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.85rem' };
-const statusTag = (status) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', marginTop: '5px', background: '#dcfce7', color: '#166534' });
+// --- HUD STYLE SYSTEM ---
+const modHeader = { 
+  fontSize: '0.75rem', 
+  fontWeight: '800', 
+  textTransform: 'uppercase', 
+  marginBottom: '20px', 
+  color: 'var(--accent-blue)', 
+  letterSpacing: '2px',
+  borderBottom: '1px solid var(--border-glass)',
+  paddingBottom: '10px'
+};
 
-export const DashboardSidebar = ({ activeModule, vessels, voyages, notifications, userRole, stats }) => {
+const analyticsBox = { 
+  padding: '15px', 
+  background: 'rgba(255,255,255,0.03)', 
+  borderRadius: '12px', 
+  border: '1px solid var(--border-glass)', 
+  marginBottom: '15px' 
+};
+
+const labelHUD = { 
+  fontSize: '0.6rem', 
+  color: '#64748b', 
+  fontWeight: '800', 
+  letterSpacing: '1px',
+  textTransform: 'uppercase'
+};
+
+const statValueHUD = { 
+  fontSize: '1.4rem', 
+  fontWeight: 'bold', 
+  color: '#fff',
+  fontFamily: 'var(--terminal-font)'
+};
+
+const alertCardHUDStyle = { 
+  padding: '12px', 
+  background: 'rgba(244, 63, 94, 0.1)', 
+  color: 'var(--neon-red)', 
+  borderRadius: '10px', 
+  border: '1px solid var(--neon-red)',
+  marginBottom: '10px', 
+  fontSize: '0.75rem' 
+};
+
+const logEntryHUDStyle = { 
+  padding: '12px', 
+  background: 'none', 
+  borderBottom: '1px solid var(--border-glass)', 
+  fontSize: '0.8rem',
+  color: '#cbd5e1'
+};
+
+const statusTagHUD = (status) => ({ 
+  display: 'inline-block', 
+  padding: '2px 8px', 
+  borderRadius: '4px', 
+  fontSize: '0.6rem', 
+  fontWeight: 'bold', 
+  marginTop: '5px', 
+  background: status === 'Failed' || status === 'High' ? 'rgba(244, 63, 94, 0.2)' : 'rgba(16, 185, 129, 0.2)', 
+  color: status === 'Failed' || status === 'High' ? 'var(--neon-red)' : 'var(--neon-green)',
+  border: `1px solid ${status === 'Failed' || status === 'High' ? 'var(--neon-red)' : 'var(--neon-green)'}`
+});
+
+export const DashboardSidebar = ({ activeModule, vessels, voyages, notifications, userRole, stats, ports, companies, insurance, compliance }) => {
   return (
-    <div style={{ background: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', height: '82vh' }}>
+    <div style={{ background: 'none', color: '#fff' }}>
       {activeModule === 'analytics' && (
-        <div style={{ overflowY: 'auto' }}>
-          <h3 style={modHeader}>📊 Fleet Analytics</h3>
+        <div>
+          <h3 style={modHeader}>📊 FLEET ANALYTICS</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
             <div style={analyticsBox}>
-              <div style={label}>TOTAL FLEET</div>
-              <div style={statValue}>{stats?.total_vessels || vessels.length}</div>
+              <div style={labelHUD}>TOTAL FLEET</div>
+              <div style={statValueHUD}>{stats?.total_vessels || vessels.length}</div>
             </div>
             <div style={analyticsBox}>
-              <div style={label}>ACTIVE NOW</div>
-              <div style={{...statValue, color: '#10b981'}}>{stats?.active_vessels || vessels.filter(v => v.status === 'Active').length}</div>
+              <div style={labelHUD}>ACTIVE</div>
+              <div style={{...statValueHUD, color: 'var(--neon-green)'}}>{stats?.active_vessels || vessels.filter(v => v.status === 'Active').length}</div>
             </div>
           </div>
 
           <div style={analyticsBox}>
-             <div style={label}>VESSEL TYPE DISTRIBUTION</div>
-             <div style={{marginTop: '15px'}}>
-                {(stats?.type_distribution || []).map(item => {
-                  const percentage = (item.count / (stats?.total_vessels || 1)) * 100;
-                  return (
-                    <div key={item.vessel_type} style={{marginBottom: '12px'}}>
-                      <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px'}}>
-                        <span>{item.vessel_type}</span>
-                        <span style={{fontWeight: 'bold'}}>{item.count}</span>
-                      </div>
-                      <div style={{height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden'}}>
-                        <div style={{
-                          height: '100%', 
-                          width: `${percentage}%`, 
-                          background: '#3b82f6',
-                          transition: 'width 1s ease-in-out'
-                        }} />
-                      </div>
-                    </div>
-                  );
-                })}
-             </div>
-          </div>
-
-          <div style={analyticsBox}>
-             <div style={label}>SECURITY OVERVIEW</div>
-             <div style={{marginTop: '10px', fontSize: '0.8rem'}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '5px'}}>
-                   <span>Risk Alerts (24h)</span>
-                   <span style={{color: '#ef4444', fontWeight: 'bold'}}>{stats?.recent_events_count || 0}</span>
-                </div>
-                <div style={{fontSize: '0.7rem', color: '#64748b'}}>Intelligence integrity: 98%</div>
+             <div style={labelHUD}>VESSEL DISTRIBUTION</div>
+             <div style={{height: '150px', width: '100%', marginTop: '15px'}}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats?.type_distribution || []}>
+                    <XAxis dataKey="vessel_type" hide />
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', fontSize: '0.7rem' }} />
+                    <Bar dataKey="count" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
              </div>
           </div>
         </div>
       )}
 
-      {activeModule === 'vessels' && (
+      {activeModule === 'ports' && (
         <div>
-          <h3 style={modHeader}>🚢 Voyage Audit</h3>
-          <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {voyages.map(voy => (
-              <div key={voy.id} style={logEntryStyle}>
-                <strong>{voy.vessel_name}</strong>
-                <div style={{fontSize: '0.75rem', color: '#64748b'}}>{voy.port_from_name} ➔ {voy.port_to_name}</div>
-                <div style={statusTag(voy.status)}>{voy.status}</div>
+          <h3 style={modHeader}>⚓ PORT LOGISTICS</h3>
+          {(ports || []).map(port => (
+            <div key={port.id} style={logEntryHUDStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 'bold' }}>{port.name.toUpperCase()}</span>
+                <span style={statusTagHUD(port.congestion_level)}>
+                  {port.congestion_level}
+                </span>
               </div>
-            ))}
-          </div>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '5px' }}>
+                AVG WAIT: <span style={{ color: '#fff' }}>{port.avg_wait_time}H</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {activeModule === 'notifications' && (
         <div>
-          <h3 style={{...modHeader, color: '#ef4444'}}>🚨 Risk Intelligence</h3>
-          {notifications.map((note, i) => <div key={i} style={alertCardStyle}>{note}</div>)}
+          <h3 style={{...modHeader, color: 'var(--neon-red)'}}>🚨 THREAT INTEL</h3>
+          {notifications.map((note, i) => <div key={i} style={alertCardHUDStyle}>{note}</div>)}
         </div>
       )}
 
-      <div style={{ marginTop: 'auto', borderTop: '1px solid #f1f5f9', paddingTop: '15px' }}>
-        <div style={label}>IDENTITY</div>
-        <div style={{fontWeight: 'bold', color: '#1e293b', textTransform: 'uppercase'}}>{userRole}</div>
-      </div>
+      {activeModule === 'companies' && (
+        <div>
+          <h3 style={modHeader}>🏢 STAKEHOLDERS</h3>
+          {companies.map(co => (
+            <div key={co.id} style={analyticsBox}>
+              <div style={labelHUD}>{co.name}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', alignItems: 'center' }}>
+                <span style={statValueHUD}>{co.fleet_size} <span style={{fontSize: '0.6rem'}}>UNITS</span></span>
+                <span style={{ color: 'var(--neon-green)', fontWeight: 'bold', fontSize: '0.8rem' }}>{co.utilization_rate}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeModule === 'compliance' && (
+        <div>
+          <h3 style={modHeader}>📜 REGULATORY AUDIT</h3>
+          {compliance.map(audit => (
+            <div key={audit.id} style={logEntryHUDStyle}>
+              <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                <strong>{audit.vessel_name}</strong>
+                <span style={statusTagHUD(audit.status)}>{audit.status}</span>
+              </div>
+              <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '4px' }}>TYPE: {audit.audit_type}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeModule === 'admin' && (
+        <div>
+          <h3 style={modHeader}>⚙️ CORE CONFIG</h3>
+          <div style={analyticsBox}>
+            <div style={labelHUD}>NETWORK UPTIME</div>
+            <div style={{ fontSize: '0.7rem', marginTop: '10px', color: '#94a3b8' }}>
+              • MARINETRAFFIC: <span style={{ color: 'var(--neon-green)' }}>SYNCED</span><br/>
+              • GDACS SAFETY: <span style={{ color: 'var(--neon-green)' }}>SYNCED</span><br/>
+              • AIS HUB: <span style={{ color: '#f59e0b' }}>DEGRADED</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

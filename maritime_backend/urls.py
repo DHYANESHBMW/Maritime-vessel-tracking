@@ -15,6 +15,10 @@ router.register(r'history', views.VesselHistoryViewSet, basename='history')
 router.register(r'voyages', views.VoyageViewSet, basename='voyage')
 router.register(r'events', views.EventViewSet, basename='event')
 router.register(r'notifications', views.NotificationViewSet, basename='notification')
+router.register(r'subscriptions', views.SubscriptionViewSet, basename='subscription')
+router.register(r'companies', views.CompanyViewSet, basename='company')
+router.register(r'insurance', views.InsurancePolicyViewSet, basename='insurance')
+router.register(r'compliance', views.ComplianceAuditViewSet, basename='compliance')
 
 # --- 2. Custom JWT View ---
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -32,6 +36,7 @@ urlpatterns = [
     
     # Core API routes from router
     path('api/stats/', views.FleetStatsView.as_view(), name='fleet_stats'),
+    path('api/export/vessels/', views.ExportVesselsCSV.as_view(), name='export_vessels'),
     path('api/', include(router.urls)), 
     path('api-auth/', include('rest_framework.urls')),
 

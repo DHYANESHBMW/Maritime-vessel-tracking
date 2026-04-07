@@ -1,6 +1,12 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, Vessel, Port, VesselHistory, Voyage, Event, Notification
+from .models import User, Vessel, Port, VesselHistory, Voyage, Event, Notification, Subscription, Company, InsurancePolicy, ComplianceAudit
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    vessel_name = serializers.ReadOnlyField(source='vessel.name')
+    class Meta:
+        model = Subscription
+        fields = ['id', 'user', 'vessel', 'vessel_name', 'alert_on_position_change', 'alert_on_status_change', 'created_at']
 
 # --- Custom JWT Response (Powers Sidebar Role Display) ---
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -57,10 +63,26 @@ class EventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Event
-        # Explicitly included timestamp to match model update
-        fields = ['id', 'vessel', 'vessel_name', 'event_type', 'location', 'timestamp', 'details']
+        # Explicitly included timestamp and is_active to match model update
+        fields = ['id', 'vessel', 'vessel_name', 'event_type', 'location', 'timestamp', 'details', 'is_active']
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'message', 'created_at', 'is_read']
+
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = '__all__'
+
+class InsurancePolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InsurancePolicy
+        fields = '__all__'
+
+class ComplianceAuditSerializer(serializers.ModelSerializer):
+    vessel_name = serializers.ReadOnlyField(source='vessel.name')
+    class Meta:
+        model = ComplianceAudit
+        fields = '__all__'

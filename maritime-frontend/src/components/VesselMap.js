@@ -5,19 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { VesselLayer, PortLayer, EventLayer } from './MapLayers';
 import { DashboardSidebar } from './DashboardSidebar';
 
-// --- Helper: Haversine Formula ---
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; 
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-};
-
-const VesselMap = ({ search = "", activeModule = "vessels" }) => {
+const VesselMap = ({ search = "", activeModule = "vessels", filters = {} }) => {
   const [vessels, setVessels] = useState([]);
   const [ports, setPorts] = useState([]);
   const [history, setHistory] = useState([]);
@@ -26,29 +14,47 @@ const VesselMap = ({ search = "", activeModule = "vessels" }) => {
   const [voyages, setVoyages] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [stats, setStats] = useState(null);
+  const [companies, setCompanies] = useState([]);
+  const [insurance, setInsurance] = useState([]);
+  const [compliance, setCompliance] = useState([]);
   const [userRole] = useState((localStorage.getItem('user_role') || 'operator').toLowerCase());
+  const [showSafety, setShowSafety] = useState(false);
+  const [replayingVessel, setReplayingVessel] = useState(null);
+  const [replayIndex, setReplayIndex] = useState(0);
+
+  useEffect(() => {
+    if (replayingVessel) {
+      const timer = setInterval(() => {
+        setReplayIndex(prev => (prev < history.length - 1 ? prev + 1 : prev));
+      }, 500);
+      return () => clearInterval(timer);
+    }
+  }, [replayingVessel, history]);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(() => { fetchData(); }, 15000);
+    const interval = setInterval(() => fetchData(), 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [filters, search]);
 
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) return;
       const authConfig = { headers: { Authorization: `Bearer ${token}` } };
-      
       const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000';
       
       const results = await Promise.allSettled([
-        axios.get(`${API_BASE}/api/vessels/`, authConfig),
+        axios.get(`${API_BASE}/api/vessels/`, { ...authConfig, params: { search, ...filters } }),
         axios.get(`${API_BASE}/api/ports/`, authConfig),
         axios.get(`${API_BASE}/api/history/`, authConfig),
         axios.get(`${API_BASE}/api/events/`, authConfig),
         axios.get(`${API_BASE}/api/voyages/`, authConfig),
-        axios.get(`${API_BASE}/api/stats/`, authConfig)
+        axios.get(`${API_BASE}/api/stats/`, authConfig),
+        axios.get(`${API_BASE}/api/notifications/`, authConfig),
+        axios.get(`${API_BASE}/api/companies/`, authConfig),
+        axios.get(`${API_BASE}/api/insurance/`, authConfig),
+        axios.get(`${API_BASE}/api/compliance/`, authConfig)
       ]);
 
       if (results[0].status === 'fulfilled') setVessels(results[0].value.data);
@@ -57,68 +63,68 @@ const VesselMap = ({ search = "", activeModule = "vessels" }) => {
       if (results[3].status === 'fulfilled') setEvents(results[3].value.data);
       if (results[4].status === 'fulfilled') setVoyages(results[4].value.data);
       if (results[5].status === 'fulfilled') setStats(results[5].value.data);
-
-      if (results[0].status === 'fulfilled' && results[1].status === 'fulfilled') {
-          runSafetyAnalysis(results[0].value.data, results[1].value.data);
-      }
-    } catch (err) { 
-      console.error("Satellite Sync Error:", err); 
-    } finally { setLoading(false); }
+      if (results[6].status === 'fulfilled') setNotifications(results[6].value.data.map(n => n.message));
+      if (results[7].status === 'fulfilled') setCompanies(results[7].value.data);
+      if (results[8].status === 'fulfilled') setInsurance(results[8].value.data);
+      if (results[9].status === 'fulfilled') setCompliance(results[9].value.data);
+    } catch (err) { console.error("Sync Error:", err); } 
+    finally { setLoading(false); }
   };
 
-  const runSafetyAnalysis = (currVessels, currPorts) => {
-    const alerts = [];
-    currVessels.forEach(v => {
-      currPorts.forEach(p => {
-        const pCoords = p.location.split(',').map(Number);
-        const dist = calculateDistance(v.last_position_lat, v.last_position_lon, pCoords[0], pCoords[1]);
-        if (dist < 100) alerts.push(`⚠️ ${v.name} within 100km of ${p.name}`);
-      });
-    });
-    setNotifications(alerts.slice(0, 5));
-  };
-
-  const filteredVessels = vessels.filter(v => 
-    v.name.toLowerCase().includes(search.toLowerCase()) || 
-    (v.mmsi && v.mmsi.toString().includes(search))
+  if (loading) return (
+    <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-deep)' }}>
+      <div className="terminal-text" style={{ color: 'var(--accent-blue)' }}>BOOTING SATELLITE LINK...</div>
+    </div>
   );
 
-  if (loading) return <div style={loadingStyle}>Connecting to Global AIS Network...</div>;
-
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', height: '100%' }}>
-      <div style={mapWrapperStyle}>
-        <MapContainer center={[15, 75]} zoom={4} style={{ height: '82vh', width: '100%' }}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          
-          {/* Layer Management */}
-          {(activeModule === 'vessels' || activeModule === 'analytics') && (
-            <VesselLayer vessels={filteredVessels} search={search} history={history} />
-          )}
-          
-          {(activeModule === 'ports' || activeModule === 'analytics') && (
-            <PortLayer ports={ports} />
-          )}
-          
-          {(activeModule === 'notifications' || activeModule === 'piracy') && (
-            <EventLayer events={events} />
-          )}
-        </MapContainer>
-      </div>
+    <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
+      <MapContainer center={[15, 75]} zoom={4} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+        <TileLayer 
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}" 
+          attribution="&copy; Esri"
+        />
+        <TileLayer 
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}" 
+          attribution=""
+        />
+        
+        {/* Layer Toggle HUD */}
+        <div style={{ position: 'absolute', top: '100px', right: '20px', zIndex: 100 }}>
+          <button 
+            onClick={() => setShowSafety(!showSafety)}
+            className="glass-hud terminal-text"
+            style={{ padding: '10px 15px', color: showSafety ? 'var(--neon-red)' : '#fff', border: 'none', cursor: 'pointer', fontSize: '0.65rem' }}
+          >
+            {showSafety ? 'NOAA ACTIVE' : 'NOAA STANDBY'}
+          </button>
+        </div>
 
-      <DashboardSidebar 
-        activeModule={activeModule}
-        vessels={vessels}
-        voyages={voyages}
-        notifications={notifications}
-        userRole={userRole}
-        stats={stats}
-      />
+        {/* Modules */}
+        <VesselLayer 
+          vessels={vessels} 
+          search={search} 
+          history={history} 
+          onReplay={(v) => { setReplayingVessel(v); setReplayIndex(0); }}
+          replayPos={replayingVessel ? history[replayIndex] : null}
+        />
+        <PortLayer ports={ports} />
+        {showSafety && <EventLayer events={events} />}
+      </MapContainer>
+
+      {/* Floating Side Detail Panel (Integrates the existing Sidebar logic but smaller) */}
+      <div style={{ position: 'absolute', top: '100px', right: '20px', bottom: '100px', width: '300px', zIndex: 100, pointerEvents: 'none' }}>
+        <div style={{ pointerEvents: 'auto', height: '100%', overflowY: 'auto' }} className="glass-hud custom-scrollbar">
+           <DashboardSidebar 
+            activeModule={activeModule}
+            vessels={vessels} voyages={voyages} notifications={notifications}
+            userRole={userRole} stats={stats} ports={ports}
+            companies={companies} insurance={insurance} compliance={compliance}
+           />
+        </div>
+      </div>
     </div>
   );
 };
-
-const loadingStyle = { textAlign: 'center', padding: '100px', color: '#64748b', fontSize: '1rem', fontWeight: 'bold' };
-const mapWrapperStyle = { position: 'relative', borderRadius: '15px', overflow: 'hidden', border: '1px solid #e2e8f0' };
 
 export default VesselMap;

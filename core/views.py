@@ -4,12 +4,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from django.contrib.auth.hashers import make_password
 from django.db.models import Q, Count
-from .models import User, Vessel, Port, VesselHistory, Voyage, Event, Notification
 from .serializers import (
     UserSerializer, VesselSerializer, PortSerializer, 
     VesselHistorySerializer, VoyageSerializer, EventSerializer, 
-    NotificationSerializer
+    NotificationSerializer, SubscriptionSerializer, 
+    CompanySerializer, InsurancePolicySerializer, ComplianceAuditSerializer
 )
+from .services.export_service import ExportService
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import User, Vessel, Port, VesselHistory, Voyage, Event, Notification, Subscription, Company, InsurancePolicy, ComplianceAudit
 
 # --- 1. User Registration (RBAC Handshake) ---
 class RegisterView(APIView):
@@ -48,6 +51,8 @@ class PasswordResetRequestView(APIView):
 class VesselViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = VesselSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['vessel_type', 'status', 'flag', 'cargo_type']
 
     def get_queryset(self):
         user = self.request.user
@@ -106,6 +111,39 @@ class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all().order_by('-created_at')
     serializer_class = NotificationSerializer
 
+class SubscriptionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = SubscriptionSerializer
+
+    def get_queryset(self):
+        return Subscription.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class CompanyViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
+
+class InsurancePolicyViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = InsurancePolicy.objects.all()
+    serializer_class = InsurancePolicySerializer
+
+class ComplianceAuditViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = ComplianceAudit.objects.all().order_by('-timestamp')
+    serializer_class = ComplianceAuditSerializer
+
+class ExportVesselsCSV(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        csv_data = ExportService.export_vessels_to_csv(Vessel.objects.all())
+        response = Response(csv_data, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="fleet_report.csv"'
+        return response
+
 # --- 7. Analytics & Aggregation ---
 class FleetStatsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -116,6 +154,7 @@ class FleetStatsView(APIView):
             'active_vessels': Vessel.objects.filter(status='Active').count(),
             'type_distribution': list(Vessel.objects.values('vessel_type').annotate(count=Count('id'))),
             'status_distribution': list(Vessel.objects.values('status').annotate(count=Count('id'))),
-            'recent_events_count': Event.objects.filter(timestamp__gte=request.user.date_joined).count() # Just an example
+            'recent_events_count': Event.objects.filter(timestamp__gte=request.user.date_joined).count(),
+            'compliance_pass_rate': round((ComplianceAudit.objects.filter(status='Passed').count() / max(ComplianceAudit.objects.count(), 1)) * 100, 1)
         }
         return Response(stats)

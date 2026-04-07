@@ -1,5 +1,6 @@
 import React from 'react';
 import { Marker, Popup, Polyline, Circle } from 'react-leaflet';
+import axios from 'axios';
 import L from 'leaflet';
 
 // --- Icons (Shared with main component logic) ---
@@ -18,7 +19,7 @@ const piracyIcon = new L.Icon({
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
 });
 
-export const VesselLayer = ({ vessels, search, history }) => (
+export const VesselLayer = ({ vessels, search, history, onReplay, replayPos }) => (
   <>
     {search && history.length > 0 && (
       <Polyline positions={history.map(h => [h.latitude, h.longitude])} color="#3b82f6" weight={2} dashArray="5, 5" />
@@ -31,11 +32,28 @@ export const VesselLayer = ({ vessels, search, history }) => (
             <span style={{ fontSize: '0.7rem', color: '#64748b' }}>MMSI: {v.mmsi || 'N/A'}</span><br/>
             <hr style={{ margin: '5px 0', border: 'none', borderTop: '1px solid #eee' }} />
             Type: {v.vessel_type}<br/>
+            Flag: {v.flag || 'N/A'}<br/>
+            Cargo: {v.cargo_type || 'N/A'}<br/>
+            Dest: {v.destination || 'N/A'}<br/>
             Status: <span style={{ color: v.status === 'Active' ? '#10b981' : '#f59e0b' }}>{v.status}</span>
+            <hr style={{ margin: '5px 0', border: 'none', borderTop: '1px solid #eee' }} />
+            <button 
+              onClick={() => onReplay(v)}
+              style={{ ...subscribeButtonStyle, background: '#10b981', marginTop: '10px' }}
+            >
+              🔄 Replay Voyage History
+            </button>
           </div>
         </Popup>
       </Marker>
     ))}
+    {replayPos && (
+      <Circle 
+        center={[replayPos.latitude, replayPos.longitude]} 
+        radius={50000} 
+        pathOptions={{ color: '#10b981', fillColor: '#10b981' }} 
+      />
+    )}
   </>
 );
 
@@ -48,10 +66,22 @@ export const PortLayer = ({ ports }) => (
     ))}
   </>
 );
+const subscribeButtonStyle = {
+  width: '100%',
+  padding: '6px',
+  background: '#3b82f6',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  fontSize: '0.7rem',
+  fontWeight: 'bold',
+  cursor: 'pointer',
+  marginTop: '5px'
+};
 
 export const EventLayer = ({ events }) => (
   <>
-    {events.map(event => (
+    {events.filter(e => e.is_active).map(event => (
       <React.Fragment key={event.id}>
         <Circle 
           center={event.location.split(',').map(Number)} 
